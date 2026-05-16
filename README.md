@@ -1,127 +1,172 @@
-﻿# Wikimedia Kafka Real-Time Stream Processing
+﻿# 🌟 Distributed Real-Time Data Pipeline: Wikimedia Recent Changes
 
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-2.x/3.x-231F20?logo=apache-kafka&logoColor=white)](https://kafka.apache.org/)
-[![Java](https://img.shields.io/badge/Java-17-007396?logo=java&logoColor=white)](https://www.oracle.com/java/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+![Java](https://img.shields.io/badge/Java-17-007396?style=for-the-badge&logo=java&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.6-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
 
-A high-performance, event-driven data pipeline designed to ingest, stream, and persist real-time global change events from Wikimedia. This project leverages the scalability of **Apache Kafka** and the robustness of **Spring Boot** to build a decoupled microservices architecture.
-
----
-
-## 🚀 Project Overview
-
-This project implements a complete **Reactive Stream Processing Pipeline**. It captures live "recent change" events broadcasted by the [Wikimedia EventStreams API](https://stream.wikimedia.org/v2/stream/recentchange) and processes them through a distributed messaging system.
-
-### Key Objectives
-*   **Real-Time Ingestion:** Synchronous capture of global Wikimedia edits via Server-Sent Events (SSE).
-*   **Asynchronous Processing:** Decoupling data production from consumption using Kafka to ensure system resilience and backpressure management.
-*   **Reliable Persistence:** Storing high-velocity event data into a relational database for auditing and analytical purposes.
+An enterprise-grade, event-driven microservices ecosystem designed for high-velocity data ingestion. This project serves as a comprehensive blueprint for building scalable data pipelines that process live streams using **Reactive Event Sourcing**, **Distributed Messaging**, and **Relational Persistence**.
 
 ---
 
-## 🏗️ Architecture & Technical Flow
+## 📖 Table of Contents
+- [Project Overview](#-project-overview)
+- [System Architecture](#-system-architecture)
+- [Module Deep Dive](#-module-deep-dive)
+- [Technical Flow Explanation](#-technical-flow-explanation)
+- [Step-by-Step Configuration](#-step-by-step-configuration)
+- [How to Run & Verify](#-how-to-run--verify)
+- [Tech Stack & Dependencies](#-tech-stack--dependencies)
 
-The system is composed of two primary microservices mediated by a Kafka broker.
+---
+
+## 📌 Project Overview
+
+This project is a multi-module Spring Boot application that demonstrates how to handle **Server-Sent Events (SSE)** at scale. It consumes a live "Recent Changes" stream from Wikimedia, processes the events through a distributed **Kafka Cluster**, and persists the raw JSON data into a **PostgreSQL** database.
+
+### 🌟 Key Features
+- **Reactive Ingestion:** Uses non-blocking I/O to maintain persistent stream connections.
+- **Backpressure Management:** Decouples producer and consumer to protect downstream systems from traffic spikes.
+- **Distributed Reliability:** Leverages Kafka's partitioning and persistence for zero data loss.
+- **Clean Architecture:** Modular design separating ingestion logic from persistence logic.
+
+---
+
+## 🏗️ System Architecture
+
+The architecture follows a classic **Producer-Broker-Consumer** pattern, optimized for high throughput.
 
 ```mermaid
-graph LR
-    subgraph "External Data Source"
+graph TD
+    subgraph "External World"
         W[Wikimedia API /v2/stream]
     end
 
-    subgraph "Ingestion Microservice (Producer)"
+    subgraph "Producer Microservice"
         direction TB
-        E[OkHttp EventSource] --> H[Event Handler]
+        P[OkHttp EventSource] --> H[Wikimedia Event Handler]
         H --> KT[Kafka Template]
     end
 
-    subgraph "Message Backbone"
-        K[(Apache Kafka)]
+    subgraph "Infrastructure"
+        K[(Apache Kafka Broker)]
+        Z[Zookeeper]
     end
 
-    subgraph "Persistence Microservice (Consumer)"
+    subgraph "Consumer Microservice"
         direction TB
         L[Kafka Listener] --> JPA[Spring Data JPA]
         JPA --> DB[(PostgreSQL)]
     end
 
-    W -- "SSE Stream" --> E
-    KT -- "Publish" --> K
+    W -- "Real-time SSE (JSON)" --> P
+    KT -- "Publish: wikimedia_info_updates" --> K
     K -- "Subscribe" --> L
 ```
 
-### 1. The Producer Layer (`kafka-producer-wikimedia`)
-Uses **OkHttp** and **LaunchDarkly EventSource** to maintain a persistent connection to the Wikimedia stream. 
-*   **Reactive Handling:** Implements `BackgroundEventHandler` to process incoming JSON payloads asynchronously.
-*   **Topic Publishing:** Messages are serialized and sent to the `wikimedia_info_updates` topic.
+---
 
-### 2. The Storage Layer (`kafka-consumer-database`)
-Acts as a dedicated worker to persist the incoming data stream.
-*   **Kafka Listener:** Monitors the Kafka topic and triggers on every new message.
-*   **JPA Entity Mapping:** Maps the raw event data to a `Wikimedia` entity and saves it to a PostgreSQL table (`wikimedia_recent_info`).
+## 🔍 Module Deep Dive
+
+### 1. Ingestion Layer (`kafka-producer-wikimedia`)
+This module is the entry point for the data pipeline.
+- **`WikimediaEventChangesProducer`**: Orchestrates the connection. It uses `OkHttpClient` with a custom `User-Agent` to connect to the Wikimedia stream and starts a `BackgroundEventSource`.
+- **`WikimediaEventChangesHandler`**: A reactive handler that implements `BackgroundEventHandler`. It reacts to `onMessage`, logs the event, and pushes the data to the Kafka topic.
+- **`KafkaTopicConfig`**: Programmatically defines the `wikimedia_info_updates` topic using Spring Kafka's `TopicBuilder`.
+
+### 2. Persistence Layer (`kafka-consumer-database`)
+This module handles the data lifecycle.
+- **`KafkaConsumerDatabase`**: Contains the `@KafkaListener`. It consumes messages from the `myGroup` consumer group and passes them to the repository.
+- **`Wikimedia` Entity**: Uses `@Lob` (Large Object) to store raw event JSONs and a `UUID` for primary keys.
+- **`WikimediaEventDataRepository`**: A standard JpaRepository for PostgreSQL persistence.
 
 ---
 
-## 🛠️ Configuration & Setup
+## 🔄 Technical Flow Explanation
 
-### Prerequisites
-*   **Java 17** or higher
-*   **Apache Kafka** (running on port 9092)
-*   **PostgreSQL** (running on port 5432)
-*   **Maven** (for building the modules)
+1.  **Handshake:** The Producer microservice initiates an HTTP GET request to the Wikimedia SSE endpoint.
+2.  **Streaming:** The connection remains open. Whenever a global edit occurs, Wikimedia pushes a JSON event.
+3.  **Handling:** The `BackgroundEventSource` receives the event. The `onMessage()` callback is triggered.
+4.  **Publishing:** The `KafkaTemplate` sends the message string to the Kafka broker.
+5.  **Buffering:** Kafka stores the message in the `wikimedia_info_updates` topic. If the consumer is busy, Kafka buffers the data.
+6.  **Listening:** The Consumer microservice's `@KafkaListener` detects a new message in the topic.
+7.  **Commit:** The message is mapped to a JPA entity and saved to the `wikimedia_recent_info` table in PostgreSQL.
 
-### Step-by-Step Installation
+---
 
-1.  **Clone the Repository:**
+## 🛠️ Step-by-Step Configuration
+
+### 1. Prerequisites
+- **JDK 17+**
+- **Apache Kafka** (Local or Docker)
+- **PostgreSQL** (Local or Docker)
+
+### 2. Infrastructure Setup
+**Start Kafka (Standard Installation):**
+```bash
+# Start Zookeeper
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+# Start Kafka Broker
+bin/kafka-server-start.sh config/server.properties
+```
+
+**Setup Database:**
+Login to PostgreSQL and run:
+```sql
+CREATE DATABASE wikimedia;
+```
+
+### 3. Application Properties
+Configure your local credentials in the respective `src/main/resources/application.properties` files:
+
+**Producer Module:**
+```properties
+spring.kafka.producer.bootstrap-servers=localhost:9092
+stream-wikimedia-url=https://stream.wikimedia.org/v2/stream/recentchange
+```
+
+**Consumer Module:**
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/wikimedia
+spring.datasource.username=postgres
+spring.datasource.password=your_password
+spring.jpa.hibernate.ddl-auto=update
+```
+
+---
+
+## 🚀 How to Run & Verify
+
+1.  **Build the Project:**
     ```bash
-    git clone https://github.com/BKishoree/wikimedia_recentchange_apachekafka.git
-    cd wikimedia
-    ```
-
-2.  **Infrastructure Setup:**
-    *   Start your Zookeeper and Kafka server.
-    *   Create a PostgreSQL database named `wikimedia`.
-
-3.  **Environment Configuration:**
-    Update the `application.properties` files in both modules if your local setup differs:
-    *   **Producer:** `kafka-producer-wikimedia/src/main/resources/application.properties`
-    *   **Consumer:** `kafka-consumer-database/src/main/resources/application.properties`
-
-4.  **Build and Run:**
-    ```bash
-    # Build the entire project
     mvn clean install
-
-    # Run the Consumer Service
-    cd kafka-consumer-database
-    mvn spring-boot:run
-
-    # Run the Producer Service
-    cd ../kafka-producer-wikimedia
-    mvn spring-boot:run
     ```
 
----
+2.  **Start the Services (Order is important):**
+    - First, run the **Consumer Application** to ensure the listener is ready.
+    - Second, run the **Producer Application** to start streaming data.
 
-## ⚡ Technical Highlights
-
-### Reactive Stream Consumption (SSE)
-The project utilizes **OkHttp EventSource** to handle Server-Sent Events. Unlike traditional polling, SSE allows the server to push updates to the client as they occur, making it ideal for high-frequency streams like Wikimedia's recent changes.
-
-### Scalability and Fault Tolerance
-By using Kafka as a buffer:
-*   **Backpressure Management:** The consumer can process data at its own pace without overwhelming the database.
-*   **Persistence Guarantee:** Even if the consumer service goes down, Kafka retains the messages until the service recovers.
-
----
-
-## 🧰 Tech Stack
-*   **Framework:** Spring Boot (Starter Kafka, Data JPA)
-*   **Messaging:** Apache Kafka
-*   **Reactive Client:** OkHttp, LaunchDarkly EventSource
-*   **Database:** PostgreSQL
-*   **Utilities:** Project Lombok, Jackson (JSON processing)
+3.  **Verification:**
+    - Check the logs for `EVENT RECEIVED` in the Producer.
+    - Check the logs for `Receive message from topic` in the Consumer.
+    - Query the database to see live data:
+      ```sql
+      SELECT * FROM wikimedia_recent_info LIMIT 10;
+      ```
 
 ---
-*Developed as a reference for Event-Driven Microservices.*
+
+## 🧰 Tech Stack Detail
+
+- **Language:** Java 17
+- **Framework:** Spring Boot 4.0.6 (Latest Parent)
+- **Messaging:** Spring Kafka
+- **HTTP Client:** OkHttp 4.12.0
+- **Reactive Stream:** LaunchDarkly EventSource 4.3.0
+- **Database:** PostgreSQL with Spring Data JPA
+- **Serialization:** Jackson (JSON processing)
+- **Utility:** Project Lombok
+
+---
+*Developed by Kishore — Focused on High-Performance Event-Driven Architectures.*
