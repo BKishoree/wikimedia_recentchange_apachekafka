@@ -2,7 +2,7 @@
 
 A decoupled microservices architecture designed to ingest, process, and persist high-velocity real-time data streams using Apache Kafka and Spring Boot.
 
-## 1. Executive Summary (The 5W1H)
+## 1. Executive Summary 
 
 *   **What:** A distributed system that captures live "recent change" events from Wikimedia and stores them for analytical or auditing purposes.
 *   **Why:** To solve the challenge of processing asynchronous, high-frequency data streams while maintaining system scalability and fault tolerance through decoupling.
