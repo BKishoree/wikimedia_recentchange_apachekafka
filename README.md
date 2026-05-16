@@ -15,7 +15,7 @@ The system is engineered to handle the full lifecycle of real-time data, from in
 
 ## 🛠️ Architectural Flow
 
-\\\mermaid
+```mermaid
 graph LR
     subgraph "External Source"
         W[Wikimedia SSE Stream]
@@ -42,7 +42,7 @@ graph LR
     KT -- "Publish" --> K
     K -- "Subscribe" --> L
     R -- "Persist" --> DB
-\\\
+```
 
 ---
 
@@ -51,33 +51,33 @@ graph LR
 A critical component of this architecture is the use of **OkHttp EventSource** for data ingestion. 
 
 ### Why OkHttp EventSource?
-Standard REST APIs are "request-response," which is inefficient for live updates. This project uses **Server-Sent Events (SSE)**, where the server keeps a single connection open and "pushes" data to us as it happens.
+Standard REST APIs follow a "request-response" model, which is inefficient for live updates. This project uses **Server-Sent Events (SSE)**, where the server keeps a single connection open and "pushes" data to the client as it occurs.
 
 > [!IMPORTANT]
-> **Reactive Ingestion:** The \okhttp-eventsource\ library allows the Producer to maintain a persistent, non-blocking connection. This ensures the application doesn't "wait" for data; instead, it reacts only when an event arrives, significantly reducing CPU and memory overhead.
+> **Reactive Ingestion:** The `okhttp-eventsource` library allows the Producer to maintain a persistent, non-blocking connection. This ensures the application reacts only when an event arrives, significantly reducing CPU and memory overhead compared to traditional polling.
 
-- **Non-blocking IO:** Processes events in a background thread, keeping the main application responsive.
-- **Auto-reconnection:** Automatically handles connection drops to ensure the data pipeline is continuous.
-- **Backpressure Ready:** By handing off events to Kafka immediately, the Producer stays "light" and never gets overwhelmed by the source stream.
+- **Non-blocking IO:** Processes events in a background thread, keeping the main application thread free.
+- **Auto-reconnection:** Built-in resilience to handle connection drops, ensuring the data pipeline remains continuous.
+- **Backpressure Ready:** By immediately handing off events to Kafka, the Producer remains lightweight and never gets overwhelmed by the source stream.
 
 ---
 
 ## 🧩 Core Components
 
 ### 1️⃣ Ingestion Layer (The Producer)
-The \kafka-producer-wikimedia\ module acts as a reactive gateway. 
-- **Mechanism:** Transforms live SSE data into discrete Kafka messages.
-- **Abstraction:** The background handler ensures the ingestion logic is separated from the transport logic.
+The `kafka-producer-wikimedia` module acts as a reactive gateway. 
+- **Mechanism:** Transforms live SSE data into discrete Kafka messages in real-time.
+- **Abstraction:** The background handler ensures that ingestion logic is cleanly separated from transport logic.
 
 ### 2️⃣ Orchestration Layer (The Message Broker)
-**Apache Kafka** serves as the backbone, providing a durable and partitioned transport mechanism.
+**Apache Kafka** serves as the system's backbone, providing a durable and partitioned transport mechanism.
 - **Buffering:** Kafka ensures that fluctuations in stream velocity do not impact database performance.
-- **Durability:** Even if the consumer is offline, Kafka "remembers" the data until it is processed.
+- **Durability:** Even if the consumer service is temporarily offline, Kafka persists the data until it is successfully processed.
 
 ### 3️⃣ Persistence Layer (The Consumer)
-The \kafka-consumer-database\ module manages the data lifecycle.
-- **Asynchronous Pull:** Uses a Kafka Listener to pull messages at its own pace.
-- **ORM Mapping:** Structured payloads are mapped to JPA Entities for reliable storage.
+The `kafka-consumer-database` module manages the data lifecycle and storage.
+- **Asynchronous Pull:** Utilizes a Kafka Listener to pull messages at a rate the database can handle.
+- **ORM Mapping:** Payloads are mapped to JPA Entities for structured and reliable storage.
 
 ---
 
@@ -95,7 +95,7 @@ The \kafka-consumer-database\ module manages the data lifecycle.
 
 ## ⚙️ Extensibility
 
-The system is designed with an **Environment-Agnostic** mindset. All infrastructure details—including broker addresses and stream endpoints—are managed through externalized configuration. This allows the pipeline to be seamlessly deployed across Development, Staging, or Production environments.
+The system is built with an **Environment-Agnostic** architecture. All infrastructure details—such as broker addresses, stream endpoints, and database credentials—are managed through externalized configuration (`application.properties` or environment variables). This allows for seamless deployment across Development, Staging, and Production environments.
 
 ---
 *This project serves as a foundational blueprint for modern Event-Driven Architectures (EDA) and Real-time Data Pipelines.*
