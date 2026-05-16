@@ -1,47 +1,101 @@
-﻿# Distributed Event Streaming: Wikimedia Real-Time Data Pipeline
+﻿# 🚀 Distributed Event Streaming: Wikimedia Real-Time Data Pipeline
 
-This project demonstrates a robust, event-driven architecture designed to ingest, stream, and persist high-velocity data in real-time. By leveraging the power of Apache Kafka and Spring Boot, it provides a scalable solution for processing asynchronous event streams from the Wikimedia Foundation.
-
-## Project Overview
-
-The system is engineered to handle the full lifecycle of real-time data, from ingestion to long-term persistence. At its core, the project utilizes a decoupled microservices approach to manage the flow of "recent change" events broadcasted by Wikimedia. 
-
-- **Purpose:** To implement a resilient data pipeline that captures live global edits, ensuring data integrity and system availability through asynchronous message brokering.
-- **Scope:** The architecture bridges the gap between a high-frequency external data source (Wikimedia EventStreams) and a reliable internal storage layer (PostgreSQL), using Kafka as a distributed commit log.
-- **Design Philosophy:** The system prioritizes loose coupling, allowing the data producer and database consumer to scale independently while managing backpressure and ensuring fault tolerance.
-
-## Architectural Architecture & Concept
-
-The pipeline is structured into three primary layers, each responsible for a distinct phase of the data lifecycle:
-
-### 1. Ingestion Layer (The Producer)
-The \kafka-producer-wikimedia\ module acts as a reactive gateway. It establishes a persistent, non-blocking connection to the Wikimedia SSE (Server-Sent Events) stream. 
-- **Reactive Flow:** Using a background event handler, it transforms live stream data into discrete messages without blocking the main execution thread.
-- **Message Dispatch:** Events are dispatched to a dedicated Kafka topic, abstracting the source stream from the rest of the ecosystem.
-
-### 2. Orchestration Layer (The Message Broker)
-Apache Kafka serves as the backbone of the system, providing a durable and partitioned transport mechanism.
-- **Decoupling:** By acting as a buffer, Kafka ensures that fluctuations in stream velocity do not impact database performance.
-- **Scalability:** The use of topics and partitions allows for horizontal scaling, enabling multiple consumer instances to process data in parallel if required.
-
-### 3. Persistence Layer (The Consumer)
-The \kafka-consumer-database\ module is responsible for the final data transformation and storage.
-- **Asynchronous Consumption:** It utilizes a Kafka Listener to pull messages from the broker, ensuring the system remains responsive.
-- **Data Modeling:** Using Spring Data JPA, raw event payloads are mapped to structured entities and persisted, providing a reliable audit trail of global Wikimedia activity.
-
-## Technical Foundation
-
-| Component | Technology | Role |
-| :--- | :--- | :--- |
-| **Microservices** | Spring Boot | Application framework and dependency management |
-| **Stream Processing** | Spring Kafka | Integration with the Kafka ecosystem |
-| **Data Ingestion** | OkHttp / EventSource | Connection management for real-time SSE streams |
-| **Persistence** | JPA / Hibernate | Object-Relational Mapping and database abstraction |
-| **Storage** | PostgreSQL | Relational storage for event metadata |
-
-## Extensibility and Configuration
-
-The system is designed with a "configure once, run anywhere" mindset. All infrastructure details—including broker addresses, stream endpoints, and database connection strings—are managed through externalized configuration. This ensures the pipeline remains flexible and can be seamlessly deployed across different environments (Development, Staging, or Production) without requiring code modifications.
+This project demonstrates a robust, **Event-Driven Architecture (EDA)** designed to ingest, stream, and persist high-velocity data in real-time. By leveraging **Apache Kafka** and **Spring Boot**, it provides a scalable solution for processing asynchronous event streams from the Wikimedia Foundation.
 
 ---
-*This architecture serves as a reference implementation for modern Event-Driven Architectures (EDA) and real-time analytical pipelines.*
+
+## 📖 Project Overview
+
+The system is engineered to handle the full lifecycle of real-time data, from ingestion to long-term persistence. It bridges the gap between a high-frequency external data source and a reliable storage layer.
+
+- **🎯 Purpose:** To implement a resilient data pipeline that captures live global edits, ensuring data integrity through asynchronous message brokering.
+- **🏗️ Design Philosophy:** The system prioritizes **Loose Coupling**, allowing the data producer and database consumer to scale independently while managing backpressure and ensuring fault tolerance.
+
+---
+
+## 🛠️ Architectural Flow
+
+`mermaid
+graph LR
+    subgraph "External Source"
+        W[Wikimedia SSE Stream]
+    end
+
+    subgraph "Producer Service (Spring Boot)"
+        P[OkHttp EventSource] --> H[Event Handler]
+        H --> KT[Kafka Template]
+    end
+
+    subgraph "Message Broker"
+        K[(Apache Kafka)]
+    end
+
+    subgraph "Consumer Service (Spring Boot)"
+        L[Kafka Listener] --> R[JPA Repository]
+    end
+
+    subgraph "Storage"
+        DB[(PostgreSQL)]
+    end
+
+    W -- "Real-time SSE" --> P
+    KT -- "Publish" --> K
+    K -- "Subscribe" --> L
+    R -- "Persist" --> DB
+`
+
+---
+
+## ⚡ Reactive Stream Consumption: OkHttp EventSource
+
+A critical component of this architecture is the use of **OkHttp EventSource** for data ingestion. 
+
+### Why OkHttp EventSource?
+Standard REST APIs are "request-response," which is inefficient for live updates. This project uses **Server-Sent Events (SSE)**, where the server keeps a single connection open and "pushes" data to us as it happens.
+
+> [!IMPORTANT]
+> **Reactive Ingestion:** The \okhttp-eventsource\ library allows the Producer to maintain a persistent, non-blocking connection. This ensures the application doesn't "wait" for data; instead, it reacts only when an event arrives, significantly reducing CPU and memory overhead.
+
+- **Non-blocking IO:** Processes events in a background thread, keeping the main application responsive.
+- **Auto-reconnection:** Automatically handles connection drops to ensure the data pipeline is continuous.
+- **Backpressure Ready:** By handing off events to Kafka immediately, the Producer stays "light" and never gets overwhelmed by the source stream.
+
+---
+
+## 🧩 Core Components
+
+### 1️⃣ Ingestion Layer (The Producer)
+The \kafka-producer-wikimedia\ module acts as a reactive gateway. 
+- **Mechanism:** Transforms live SSE data into discrete Kafka messages.
+- **Abstraction:** The background handler ensures the ingestion logic is separated from the transport logic.
+
+### 2️⃣ Orchestration Layer (The Message Broker)
+**Apache Kafka** serves as the backbone, providing a durable and partitioned transport mechanism.
+- **Buffering:** Kafka ensures that fluctuations in stream velocity do not impact database performance.
+- **Durability:** Even if the consumer is offline, Kafka "remembers" the data until it is processed.
+
+### 3️⃣ Persistence Layer (The Consumer)
+The \kafka-consumer-database\ module manages the data lifecycle.
+- **Asynchronous Pull:** Uses a Kafka Listener to pull messages at its own pace.
+- **ORM Mapping:** Structured payloads are mapped to JPA Entities for reliable storage.
+
+---
+
+## 🧰 Technical Stack
+
+| Category | Technology |
+| :--- | :--- |
+| **Framework** | ![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=flat&logo=spring-boot&logoColor=white) |
+| **Messaging** | ![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=flat&logo=apache-kafka&logoColor=white) |
+| **Inbound Stream** | ![OkHttp](https://img.shields.io/badge/OkHttp-4EA94B?style=flat) (EventSource) |
+| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white) |
+| **Persistence** | Hibernate / Spring Data JPA |
+
+---
+
+## ⚙️ Extensibility
+
+The system is designed with an **Environment-Agnostic** mindset. All infrastructure details—including broker addresses and stream endpoints—are managed through externalized configuration. This allows the pipeline to be seamlessly deployed across Development, Staging, or Production environments.
+
+---
+*This project serves as a foundational blueprint for modern Event-Driven Architectures (EDA) and Real-time Data Pipelines.*
