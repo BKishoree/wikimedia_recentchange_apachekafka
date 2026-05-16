@@ -15,7 +15,7 @@ The system is engineered to handle the full lifecycle of real-time data, from in
 
 ## 🛠️ Architectural Flow
 
-`mermaid
+\\\mermaid
 graph LR
     subgraph "External Source"
         W[Wikimedia SSE Stream]
@@ -42,7 +42,7 @@ graph LR
     KT -- "Publish" --> K
     K -- "Subscribe" --> L
     R -- "Persist" --> DB
-`
+\\\
 
 ---
 
